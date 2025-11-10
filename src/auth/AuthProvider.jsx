@@ -6,7 +6,7 @@ import React, {
   useState,
   useCallback,
 } from "react";
-import api, { setAccessTokenGetter } from "./authApi";
+import api, { setAccessTokenGetter, setAccessTokenSetter } from "./authApi";
 
 const AuthContext = createContext(null);
 
@@ -14,9 +14,6 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // Give authApi a way to get the latest accessToken
-  setAccessTokenGetter(() => accessToken);
 
   // Helper: fetch /auth/me (requires a valid access token)
   const fetchMe = useCallback(async () => {
@@ -28,46 +25,6 @@ export function AuthProvider({ children }) {
       setUser(null);
       return null;
     }
-  }, []);
-
-  // On mount: try to refresh session (call /auth/refresh using cookies) to obtain access token.
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true);
-      try {
-        // Try refresh first (sends httpOnly cookie)
-        const r = await fetch(
-          (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080") +
-            "/auth/refresh",
-          {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: "{}",
-          }
-        );
-        if (r.ok) {
-          const data = await r.json();
-          if (data?.accessToken) {
-            if (!mounted) return;
-            setAccessToken(data.accessToken);
-            // now fetch user
-            await fetchMe();
-          }
-        } else {
-          setUser(null);
-        }
-      } catch (err) {
-        setUser(null);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Login
@@ -158,6 +115,7 @@ export function AuthProvider({ children }) {
     logout,
     fetchMe,
     getAccessToken,
+    setAccessToken,
     isAuthenticated: !!user,
   };
 
