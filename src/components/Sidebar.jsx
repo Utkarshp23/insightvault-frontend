@@ -13,7 +13,10 @@ export default function Sidebar({
       <div className="mb-4">
         <h1 className="text-green-400 text-lg font-semibold">🧾 PDF CLI</h1>
         {userEmail && (
-          <div className="text-xs text-gray-400 mt-2 truncate" title={userEmail}>
+          <div
+            className="text-xs text-gray-400 mt-2 truncate"
+            title={userEmail}
+          >
             {userEmail}
           </div>
         )}
@@ -34,7 +37,15 @@ export default function Sidebar({
             >
               {/* Optional small bullet/emoji per tab */}
               <span className="text-sm opacity-80">
-                {tab === "Home" ? "🏠" : tab === "Uploads" ? "⬆️" : tab === "History" ? "📜" : "·"}
+                {tab === "Home"
+                  ? "🏠"
+                  : tab === "Uploads"
+                  ? "⬆️"
+                  : tab === "History"
+                  ? "📜"
+                  : tab === "Profile"
+                  ? "👤"
+                  : "·"}
               </span>
               <span className="text-sm">{tab}</span>
             </button>

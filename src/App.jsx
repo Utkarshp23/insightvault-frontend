@@ -17,6 +17,7 @@ import Uploads from "./components/Uploads";
 import History from "./components/History";
 import AppLayout from "./AppLayout";
 import Dashboard from "./components/Dashboard";
+import Profile from "./components/Profile";
 import { useAuth } from "./auth/useAuth";
 
 /**
@@ -25,7 +26,7 @@ import { useAuth } from "./auth/useAuth";
  */
 function AppShell() {
   // include Home tab and set default to Home
-  const tabs = ["Home", "Uploads", "History"];
+  const tabs = ["Home", "Uploads", "History", "Profile"];
   const [activeTab, setActiveTab] = useState("Home");
   const [uploadQueue, setUploadQueue] = useState([]);
 
@@ -36,6 +37,7 @@ function AppShell() {
   useHotkeys("alt+1", () => setActiveTab("Home"));
   useHotkeys("alt+2", () => setActiveTab("Uploads"));
   useHotkeys("alt+3", () => setActiveTab("History"));
+  useHotkeys("alt+4", () => setActiveTab("Profile"));
 
   const handleLogout = async () => {
     try {
@@ -104,6 +106,7 @@ function AppShell() {
         )}
 
         {activeTab === "History" && <History />}
+        {activeTab === "Profile" && <Profile />}
       </main>
     </div>
   );
