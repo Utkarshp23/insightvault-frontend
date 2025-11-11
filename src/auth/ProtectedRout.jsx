@@ -4,7 +4,7 @@ import { useAuth } from "./useAuth";
 import { Navigate } from "react-router-dom";
 
 export default function ProtectedRoute({ children }) {
-  const { user, fetchMe, setAccessToken } = useAuth(); // fetchMe and setAccessToken should be exposed by your AuthProvider
+  const { user, fetchMe, setAccessToken, getAccessToken } = useAuth(); // fetchMe and setAccessToken should be exposed by your AuthProvider
   const [checking, setChecking] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
@@ -12,6 +12,16 @@ export default function ProtectedRoute({ children }) {
     let mounted = true;
     (async () => {
       setChecking(true);
+
+      // If we already have an in-memory token or user, allow immediately.
+      if (user || (getAccessToken && getAccessToken())) {
+        if (!mounted) return;
+        setAllowed(true);
+        setChecking(false);
+        return;
+      }
+
+      // Otherwise try one refresh (will return new access token if cookie present)
       try {
         const base =
           import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
@@ -30,23 +40,19 @@ export default function ProtectedRoute({ children }) {
           }
         }
       } catch (err) {
-        // ignore - user will stay unauthenticated
+        // ignore
       } finally {
         if (!mounted) return;
-        setAllowed(!!(user || awaitPromiseUser())); // fallback check
+        // allowed if we have user or token now
+        setAllowed(!!(user || (getAccessToken && getAccessToken())));
         setChecking(false);
       }
     })();
 
-    async function awaitPromiseUser() {
-      await new Promise((r) => setTimeout(r, 10));
-      return useAuth().user; 
-    }
-
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [user, getAccessToken, fetchMe, setAccessToken]);
 
   if (checking) return <div>Checking authentication…</div>;
   if (!allowed) return <Navigate to="/login" replace />;

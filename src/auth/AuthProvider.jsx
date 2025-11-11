@@ -15,10 +15,29 @@ export function AuthProvider({ children }) {
   const [accessToken, setAccessToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    setAccessTokenGetter( () => accessToken);
+    setAccessTokenSetter((tok) => {
+      // authApi may call this with new access token after refresh
+      setAccessToken(tok);
+      if (tok) {
+        api.defaults.headers = api.defaults.headers || {};
+        api.defaults.headers.common = api.defaults.headers.common || {};
+        api.defaults.headers.common["Authorization"] = `Bearer ${tok}`;
+      } else {
+        if (api?.defaults?.headers?.common) {
+          delete api.defaults.headers.common["Authorization"];
+        }
+      }
+    });
+  }, [accessToken]);
+
   // Helper: fetch /auth/me (requires a valid access token)
   const fetchMe = useCallback(async () => {
     try {
+      console.log("AuthProvider fetchMe called");
       const res = await api.get("/auth/me");
+      console.log("fetchMe response:", res.data);
       setUser(res.data);
       return res.data;
     } catch (e) {
@@ -39,6 +58,7 @@ export function AuthProvider({ children }) {
       { withCredentials: true }
     );
 
+    console.log("login response:", resp.data);
     const tokenFromResp = resp.data?.accessToken;
     if (tokenFromResp) {
       // 1) set in-memory state
