@@ -61,7 +61,6 @@ export default function Uploads({
                 file={item.file}
                 onRemove={() => onRemove(item.id)}
                 onComplete={(resp) => onComplete(item.id, resp)}
-                uploadUrl={uploadUrl}
               />
             ))}
           </div>

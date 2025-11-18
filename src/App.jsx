@@ -98,10 +98,6 @@ function AppShell() {
             onAddFiles={addFilesToQueue}
             onRemove={removeFromQueue}
             onComplete={markComplete}
-            uploadUrl={
-              import.meta.env.VITE_UPLOAD_URL ||
-              "http://localhost:8080/uploadFile"
-            }
           />
         )}
 
