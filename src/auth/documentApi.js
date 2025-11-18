@@ -4,19 +4,19 @@ import api from "../auth/authApi";
  * Create upload intent in backend. Backend returns:
  * { documentId, storageKey, presignedUrl, presignedUrlExpiresAt, ttlSeconds, status }
  */
-export async function createUploadIntent({
-  filename,
-  mimeType,
-  size,
-  metadata = {},
-}) {
+export async function createUploadIntent(
+  { filename, mimeType, size, metadata = {} },
+  idempotencyKey
+) {
   const payload = {
     filename,
     mimeType,
     size,
     metadata,
   };
-  const resp = await api.post("/documents", payload);
+  const resp = await api.post("/documents", payload, {
+    headers: { "Idempotency-Key": idempotencyKey },
+  });
   return resp.data;
 }
 

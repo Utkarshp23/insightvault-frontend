@@ -1,6 +1,7 @@
 // src/components/UploadItem.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { createUploadIntent, completeUpload } from "../auth/documentApi";
+import { v4 as uuidv4 } from "uuid";
 
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -14,8 +15,11 @@ export default function UploadItem({ id, file, onRemove, onComplete }) {
   const [errorMsg, setErrorMsg] = useState(null);
   const xhrRef = useRef(null);
   const cancelledRef = useRef(false);
+  const createdRef = useRef(false);
 
   useEffect(() => {
+    if (createdRef.current) return; // guard against double-run (StrictMode)
+    createdRef.current = true;
     uploadFlow();
     return () => {
       cancelledRef.current = true;
@@ -30,12 +34,16 @@ export default function UploadItem({ id, file, onRemove, onComplete }) {
     // 1) Create upload intent in backend
     let intent;
     try {
-      intent = await createUploadIntent({
-        filename: file.name,
-        mimeType: file.type || "application/octet-stream",
-        size: file.size,
-        metadata: {}, // add any extra metadata if needed
-      });
+      const idempotencyKey = uuidv4();
+      intent = await createUploadIntent(
+        {
+          filename: file.name,
+          mimeType: file.type || "application/octet-stream",
+          size: file.size,
+          metadata: {}, // add any extra metadata if needed
+        },
+        idempotencyKey
+      );
     } catch (err) {
       console.error("createUploadIntent failed", err);
       setStatus("error");
