@@ -41,7 +41,7 @@ export default function Sidebar({
                   ? "🏠"
                   : tab === "Uploads"
                   ? "⬆️"
-                  : tab === "History"
+                  : tab === "My Documents" // Updated check
                   ? "📜"
                   : tab === "Profile"
                   ? "👤"

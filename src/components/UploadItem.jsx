@@ -1,7 +1,6 @@
 // src/components/UploadItem.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { createUploadIntent, completeUpload } from "../auth/documentApi";
-import { v4 as uuidv4 } from "uuid";
 
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -9,9 +8,21 @@ function formatSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-export default function UploadItem({ id, file, onRemove, onComplete }) {
-  const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState("queued"); // queued | uploading | done | error | cancelled
+export default function UploadItem({
+  id,
+  file,
+  idempotencyKey,
+  status: statusProp,
+  completedAt,
+  started,
+  onStart,
+  onRemove,
+  onComplete,
+}) {
+  const [progress, setProgress] = useState(statusProp === "done" ? 100 : 0);
+  const [status, setStatus] = useState(
+    statusProp || (started ? "uploading" : "queued")
+  );
   const [errorMsg, setErrorMsg] = useState(null);
   const xhrRef = useRef(null);
   const cancelledRef = useRef(false);
@@ -20,6 +31,21 @@ export default function UploadItem({ id, file, onRemove, onComplete }) {
   useEffect(() => {
     if (createdRef.current) return; // guard against double-run (StrictMode)
     createdRef.current = true;
+
+    if (statusProp === "done") {
+      setStatus("done");
+      setProgress(100);
+      return;
+    }
+
+    if (started) {
+      // We assume upload has been started by previous mount; keep UI in 'uploading' state.
+      setStatus("uploading");
+      return;
+    }
+    onStart && onStart();
+    setStatus("uploading");
+
     uploadFlow();
     return () => {
       cancelledRef.current = true;
@@ -28,13 +54,28 @@ export default function UploadItem({ id, file, onRemove, onComplete }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Keep local status/progress in sync with parent updates (handles remounts)
+  useEffect(() => {
+    if (!statusProp) return;
+
+    if (statusProp === "done") {
+      setStatus("done");
+      setProgress(100);
+    } else if (statusProp === "uploading") {
+      setStatus("uploading");
+      // don't change progress here — server might not report exact percentage.
+    } else {
+      setStatus(statusProp);
+    }
+  }, [statusProp]);
+
   async function uploadFlow() {
     setStatus("uploading");
 
     // 1) Create upload intent in backend
     let intent;
     try {
-      const idempotencyKey = uuidv4();
+      const keyToUse = idempotencyKey || undefined;
       intent = await createUploadIntent(
         {
           filename: file.name,
@@ -42,7 +83,7 @@ export default function UploadItem({ id, file, onRemove, onComplete }) {
           size: file.size,
           metadata: {}, // add any extra metadata if needed
         },
-        idempotencyKey
+        keyToUse
       );
     } catch (err) {
       console.error("createUploadIntent failed", err);
@@ -62,6 +103,7 @@ export default function UploadItem({ id, file, onRemove, onComplete }) {
 
     // 2) Upload file directly to presigned URL using XMLHttpRequest (to track progress)
     try {
+      console.log("PrsignedUrl:",presignedUrl)
       await putFileToPresignedUrl(presignedUrl, file, (pct) => {
         setProgress(pct);
       });

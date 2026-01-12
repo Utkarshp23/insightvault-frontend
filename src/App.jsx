@@ -1,17 +1,16 @@
-// src/App.jsx
+// /mnt/data/App.jsx
 import React, { useState } from "react";
-import { BrowserRouter, Routes, Route,useNavigate  } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { useHotkeys } from "react-hotkeys-hook";
+import { v4 as uuidv4 } from "uuid";
 
 import { AuthProvider } from "./auth/AuthProvider";
 import ProtectedRoute from "./auth/ProtectedRout";
 
-// prefer pages folder (adjust if your files live elsewhere)
 import Landing from "./components/Landing";
 import Login from "./auth/Login";
 import Signup from "./auth/SignUp";
 
-// your existing components
 import Sidebar from "./components/Sidebar";
 import Uploads from "./components/Uploads";
 import History from "./components/History";
@@ -22,35 +21,36 @@ import { useAuth } from "./auth/useAuth";
 
 /**
  * AppShell contains the original app UI and behavior (tabs, hotkeys, upload queue).
- * This will be shown only when user is authenticated (ProtectedRoute wraps it).
  */
 function AppShell() {
-  // include Home tab and set default to Home
-  const tabs = ["Home", "Uploads", "History", "Profile"];
+  const tabs = ["Home", "Uploads", "My Documents", "Profile"];
   const [activeTab, setActiveTab] = useState("Home");
+
+  /**
+   * uploadQueue shape:
+   * { id, file, idempotencyKey, started: boolean, status?, completedAt?, serverResponse? }
+   */
   const [uploadQueue, setUploadQueue] = useState([]);
 
-  const { logout, user } = useAuth(); // assume useAuth returns logout and user
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
 
-  // hotkeys: map alt+1 -> Home, alt+2 -> Uploads, alt+3 -> History
   useHotkeys("alt+1", () => setActiveTab("Home"));
   useHotkeys("alt+2", () => setActiveTab("Uploads"));
-  useHotkeys("alt+3", () => setActiveTab("History"));
+  useHotkeys("alt+3", () => setActiveTab("My Documents"));
   useHotkeys("alt+4", () => setActiveTab("Profile"));
 
   const handleLogout = async () => {
     try {
-      await logout(); // clear tokens on client and/or server
+      await logout();
     } catch (e) {
-      // ignore or show notification
       console.error("Logout failed", e);
     } finally {
       navigate("/login", { replace: true });
     }
   };
 
-  // upload queue helpers unchanged
+  // --- NEW: addFilesToQueue pre-generates idempotencyKey and started=false
   const addFilesToQueue = (files) => {
     const pdfFiles = Array.from(files).filter(
       (f) => f.type === "application/pdf"
@@ -60,23 +60,38 @@ function AppShell() {
     const newItems = pdfFiles.map((file) => ({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       file,
+      idempotencyKey: uuidv4(),
+      started: false,
+      status: "queued",
     }));
 
     setUploadQueue((prev) => [...prev, ...newItems]);
   };
 
+  // mark a queue item as started so remounts won't re-trigger upload
+  const markStarted = (id) => {
+    setUploadQueue((prev) =>
+      prev.map((it) =>
+        it.id === id ? { ...it, started: true, status: "uploading" } : it
+      )
+    );
+  };
+
+  // remove an item (cancelled/removed/done cleanup)
   const removeFromQueue = (id) => {
     setUploadQueue((prev) => prev.filter((i) => i.id !== id));
   };
 
+  // called when a single upload completes successfully (serverResponse is whatever backend returned)
   const markComplete = (id, serverResponse) => {
     setUploadQueue((prev) =>
       prev.map((item) =>
         item.id === id
-          ? { ...item, completedAt: Date.now(), serverResponse }
+          ? { ...item, completedAt: Date.now(), status: "done", serverResponse }
           : item
       )
     );
+    // optionally you could keep completed items or remove them after a delay
   };
 
   return (
@@ -97,11 +112,12 @@ function AppShell() {
             queue={uploadQueue}
             onAddFiles={addFilesToQueue}
             onRemove={removeFromQueue}
+            onStart={markStarted}
             onComplete={markComplete}
           />
         )}
 
-        {activeTab === "History" && <History />}
+        {activeTab === "My Documents" && <History />}
         {activeTab === "Profile" && <Profile />}
       </main>
     </div>
@@ -127,7 +143,6 @@ export default function App() {
               }
             />
 
-            {/* fallback: send unknown routes to landing */}
             <Route path="*" element={<Landing />} />
           </Routes>
         </AppLayout>
